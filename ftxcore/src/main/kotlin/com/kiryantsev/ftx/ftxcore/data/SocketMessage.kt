@@ -15,31 +15,36 @@ abstract class SocketMessage {
 @Serializable
 object OkMessage : SocketMessage()
 
-@Serializable
 object RetryFileSend : SocketMessage()
 
 @Serializable
 object ErrorMessage: SocketMessage()
 
 @Serializable
-data class AvailablePoolSize(
+data class AvailablePoolSizeMessage(
     val size: Int
 ) : SocketMessage()
 
 
 @Serializable
-data class CheckFreeSpaceForTransfer(
-    val size: Long
+data class CheckFreeSpaceForTransferMessage(
+    val size: Long,
 ): SocketMessage()
 
 @Serializable
-data class ChoosedPoolSize(
+data class ChosenPoolSizeMessage(
     val size: Int,
     val ports: List<Int>
 ) : SocketMessage()
 
 @Serializable
 data class StartFileSendingMessage(
-    val sizeInBytes: Int,
+    val sizeInBytes: Long,
     val relativePathWithName: String,
 ) : SocketMessage()
+
+
+@Serializable
+data class FileReceivedMessage(
+    val path : String
+): SocketMessage()

@@ -1,4 +1,17 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 package com.kiryantsev.ftx.ftxcore.client
+
+import com.kiryantsev.ftx.ftxcore.data.FileReceivedMessage
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.update
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 
 /*
@@ -17,4 +30,39 @@ algo:
 
 
 class Client {
+
+
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+
+    private val coordinator = BaseSocketClient(
+        onCreateClients = this::createClients
+    )
+
+
+    suspend fun init(ip: String, port: Int) {
+        coordinator.connect(ip = ip, port = port)
+        coordinator.coordinatePool()
+
+        return withTimeout(
+            timeout = 15.toDuration(DurationUnit.SECONDS)
+        ) {
+            suspendCoroutine<Boolean> { cont ->
+                coroutineScope.launch {
+                    coordinator.state.filter { it == ClientState.READY }.collect {
+                        cont.resume(true)
+                    }
+                }
+            }
+        }
+    }
+
+
+    suspend fun sendFolder(path: String){
+
+    }
+
+
+    private fun createClients(ports: List<Int>) {
+        TODO("Not yet implemented")
+    }
 }

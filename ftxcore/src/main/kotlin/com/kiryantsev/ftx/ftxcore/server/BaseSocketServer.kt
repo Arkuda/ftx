@@ -17,7 +17,7 @@ import java.util.*
 //https://gist.github.com/Silverbaq/a14fe6b3ec57703e8cc1a63b59605876
 
 @ExperimentalCoroutinesApi
-class BaseSocketServer(
+internal class BaseSocketServer(
     private val port: Int,
     private val basePath: String,
     private val onCreateServersWithPorts: (List<Int>) -> Unit,
@@ -33,12 +33,12 @@ class BaseSocketServer(
 
 
     fun start() {
-        val someDefferedToDispose = GlobalScope.async {
+        val someDeferredToDispose = GlobalScope.async {
             return@async withContext(Dispatchers.IO) {
                 return@withContext socket.accept()
             }
         }
-        someDefferedToDispose.start()
+        someDeferredToDispose.start()
     }
 
     suspend fun awaitClientConnection(): Socket {
@@ -74,7 +74,7 @@ class BaseSocketServer(
     private fun onMessageReceived(message: SocketMessage, client: Socket) {
         when (message) {
 
-            is AvailablePoolSize -> {
+            is AvailablePoolSizeMessage -> {
                 val thisPoolSize = 64
                 Dispatchers.IO.limitedParallelism(thisPoolSize)
 
@@ -86,7 +86,7 @@ class BaseSocketServer(
                 onCreateServersWithPorts(chosenPorts)
 
                 client.getOutputStream().write(
-                    ChoosedPoolSize(
+                    ChosenPoolSizeMessage(
                         chosenPoolSize,
                         ports = chosenPorts
                     ).toStreamedMessage()
@@ -104,7 +104,7 @@ class BaseSocketServer(
             }
 
 
-            is CheckFreeSpaceForTransfer  -> {
+            is CheckFreeSpaceForTransferMessage  -> {
               val targetFolderFreeSpace =  File(basePath).freeSpace
                 if(targetFolderFreeSpace > message.size){
                     client.getOutputStream().write(OkMessage.toStreamedMessage())
@@ -135,7 +135,7 @@ class BaseSocketServer(
 
 }
 
-private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Int, bufferSize: Int = 1024) {
+private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Long, bufferSize: Int = 1024) {
     var transferred: Long = 0
     val buffer = ByteArray(bufferSize)
     var read: Int
