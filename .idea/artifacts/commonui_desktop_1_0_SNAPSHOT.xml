@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="commonui-desktop-1.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/commonui/build/libs</output-path>
+    <root id="archive" name="commonui-desktop-1.0-SNAPSHOT.jar">
+      <element id="module-output" name="ftx.commonui.desktopMain" />
+    </root>
+  </artifact>
+</component>
