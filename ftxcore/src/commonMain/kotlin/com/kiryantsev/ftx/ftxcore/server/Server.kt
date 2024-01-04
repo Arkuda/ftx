@@ -19,7 +19,7 @@ algo:
 */
 
 
-class Server(val basePath: String) {
+public class Server(private val basePath: String) {
 
     private val coreServer = BaseSocketServer(
         port = 8099,
@@ -30,7 +30,7 @@ class Server(val basePath: String) {
     private var disposableJobs: MutableList<Job> = mutableListOf()
 
 
-    fun start() {
+    public fun start() {
         val coreJob = GlobalScope.launch {
             withContext(Dispatchers.IO) {
                 coreServer.handleClientMessages(coreServer.awaitClientConnection())
@@ -41,16 +41,16 @@ class Server(val basePath: String) {
     }
 
 
-    fun stopAll() {
+    public fun stopAll() {
         disposableJobs.forEach(Job::cancel)
     }
 
     private fun createAdditionalServers(ports: List<Int>) {
         ports.forEach { port ->
             val subJob = GlobalScope.launch {
-                withContext(Dispatchers.IO){
-                  val subServ = BaseSocketServer(
-                        port = port ,
+                withContext(Dispatchers.IO) {
+                    val subServ = BaseSocketServer(
+                        port = port,
                         basePath = basePath,
                         onCreateServersWithPorts = {}
                     )

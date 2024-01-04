@@ -15,10 +15,10 @@ public fun ClientOrServerScreen(
     navigator: Navigator
 ) {
     Surface {
-        Row(
+        Column(
             modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(
                 onClick = {
@@ -26,7 +26,7 @@ public fun ClientOrServerScreen(
                 },
                 content = { Text("I'm send files") }
             )
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.height(16.dp))
             Button(
                 onClick = {
                     navigator.onChangeScreen(CurrentScreenEnum.SERVER_SCREEN)

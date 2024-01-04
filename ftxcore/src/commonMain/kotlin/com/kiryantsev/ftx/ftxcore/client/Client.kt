@@ -29,8 +29,9 @@ algo:
 
 
 
-class Client(
-    val ip: String, val port: Int
+public class Client(
+    private val ip: String,
+    private val port: Int = 8099
 ) {
 
 
@@ -43,7 +44,7 @@ class Client(
     private val clientsPool = mutableListOf<BaseSocketClient>()
 
 
-    suspend fun init() {
+    public suspend fun init() {
         coordinator.connect(ip = ip, port = port)
         coordinator.coordinatePool()
         coordinator.startHandleClientMessages()
@@ -62,7 +63,7 @@ class Client(
     }
 
 
-    suspend fun sendFolder(path: String) {
+    public suspend fun sendFolder(path: String) {
         return suspendCoroutine { continuation ->
             val filesToSend = FileTreeUtils.getFilesForDirectory(path).toMutableList()
             PoolCoordinator(

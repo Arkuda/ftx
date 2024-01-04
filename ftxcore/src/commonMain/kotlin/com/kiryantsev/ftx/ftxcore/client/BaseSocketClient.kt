@@ -14,7 +14,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 @ExperimentalCoroutinesApi
-class BaseSocketClient(
+internal class BaseSocketClient(
     private val onCreateClients: (List<Int>) -> Unit,
 ) {
 
@@ -71,6 +71,7 @@ class BaseSocketClient(
     }
 
 
+    @Suppress("NewApi")
     fun sendFile(file: File, basePath: String): Deferred<Boolean> =
         coroutineScope.async {
             val path = file.path.replace(basePath, "")

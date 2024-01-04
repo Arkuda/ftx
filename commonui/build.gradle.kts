@@ -27,6 +27,8 @@ kotlin {
                 api(compose.foundation)
                 api(compose.materialIconsExtended)
                 api(compose.material3)
+                implementation("com.darkrockstudios:mpfilepicker:3.1.0")
+                implementation(project(":ftxcore"))
             }
         }
 
@@ -46,6 +48,7 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 api(compose.preview)
+                implementation(project(":ftxcore"))
             }
         }
 
@@ -68,4 +71,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+dependencies {
+    implementation(project(mapOf("path" to ":ftxcore")))
 }

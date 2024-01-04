@@ -7,7 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.io.File
 import kotlin.coroutines.suspendCoroutine
 
-class PoolCoordinator(
+internal class PoolCoordinator(
     val pool: List<BaseSocketClient>,
     val files: List<File>,
     val basePath: String,

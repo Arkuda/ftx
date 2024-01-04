@@ -2,7 +2,7 @@ package com.kiryantsev.ftx.ftxcore.client
 
 import java.io.File
 
-class FileTreeUtils {
+internal class FileTreeUtils {
     companion object {
         fun getFilesForDirectory(path: String) : List<File>{
             val fileList = mutableListOf<File>()

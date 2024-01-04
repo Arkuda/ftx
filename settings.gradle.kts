@@ -12,5 +12,5 @@ rootProject.name = "ftx"
 include(":android")
 include(":desktop")
 include(":commonui")
-include("ftxcore")
-include("ftxcore")
+include(":ftxcore")
+//include(":ftxcore")

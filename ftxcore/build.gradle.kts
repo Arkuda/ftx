@@ -1,29 +1,54 @@
 plugins {
 //    id("java")
-    id("kotlin")
+//    id("kotlin")
+    kotlin("multiplatform")
     kotlin("plugin.serialization") version "1.9.22"
+//    id("com.android.library")
 }
 
-group = "com.kiryantsev.ftx.ftxcore"
+group = "com.kiryantsev"
 version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
 }
 
-dependencies {
 
+kotlin {
 
-    //coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-RC2")
+    jvm(){
+        compilations.all {
+            kotlinOptions.jvmTarget = "11"
+        }
+    }
+//    jvm("desktop") {
+//        compilations.all {
+//            kotlinOptions.jvmTarget = "11"
+//        }
+//    }
 
-    //serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                //coroutines
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-RC2")
 
-//    testImplementation(platform("org.junit:junit-bom:5.9.1"))
-//    testImplementation("org.junit.jupiter:junit-jupiter")
-}
+                //serialization
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+            }
+        }
 
-tasks.test {
-//    useJUnitPlatform()
+//        val coreMain by getting {
+//
+//            dependencies {
+//                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-RC2")
+//
+//                //serialization
+//                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+//            }
+//        }
+
+        explicitApi()
+
+    }
 }
