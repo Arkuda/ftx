@@ -63,17 +63,19 @@ public class Client(
     }
 
 
-    public suspend fun sendFolder(path: String) {
-        return suspendCoroutine { continuation ->
-            val filesToSend = FileTreeUtils.getFilesForDirectory(path).toMutableList()
-            PoolCoordinator(
-                pool = clientsPool,
-                files = filesToSend,
-                basePath = path,
-                onCompliteSending = {
-                    continuation.resume(Unit)
-                }
-            ).start()
+    public fun sendFolder(path: String): Job {
+        return coroutineScope.launch {
+            return@launch suspendCoroutine { continuation ->
+                val filesToSend = FileTreeUtils.getFilesForDirectory(path).toMutableList()
+                PoolCoordinator(
+                    pool = clientsPool,
+                    files = filesToSend,
+                    basePath = path,
+                    onCompliteSending = {
+                        continuation.resume(Unit)
+                    }
+                ).start()
+            }
         }
     }
 
