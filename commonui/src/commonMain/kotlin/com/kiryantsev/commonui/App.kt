@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import com.kiryantsev.commonui.screens.ClientOrServerScreen
 import com.kiryantsev.commonui.screens.CurrentScreenEnum
 import com.kiryantsev.commonui.screens.Navigator
+import com.kiryantsev.commonui.screens.client.ClientScreen
 import com.kiryantsev.commonui.screens.server.ServerScreen
 
 @Composable
@@ -29,6 +30,6 @@ internal fun App() {
     when (currentScreen.value){
         CurrentScreenEnum.CHOOSE_CLIENT_OR_SERVER -> ClientOrServerScreen(navigator)
         CurrentScreenEnum.SERVER_SCREEN -> ServerScreen(navigator)
-        CurrentScreenEnum.CLIENT_SCREEN -> TODO()
+        CurrentScreenEnum.CLIENT_SCREEN -> ClientScreen(navigator)
     }
 }
