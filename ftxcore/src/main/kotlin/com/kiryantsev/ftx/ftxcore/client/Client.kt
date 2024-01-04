@@ -29,7 +29,9 @@ algo:
 
 
 
-class Client {
+class Client(
+    val ip: String, val port: Int
+) {
 
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -38,10 +40,13 @@ class Client {
         onCreateClients = this::createClients
     )
 
+    private val clientsPool = mutableListOf<BaseSocketClient>()
 
-    suspend fun init(ip: String, port: Int) {
+
+    suspend fun init() {
         coordinator.connect(ip = ip, port = port)
         coordinator.coordinatePool()
+        coordinator.startHandleClientMessages()
 
         return withTimeout(
             timeout = 15.toDuration(DurationUnit.SECONDS)
@@ -57,12 +62,27 @@ class Client {
     }
 
 
-    suspend fun sendFolder(path: String){
-
+    suspend fun sendFolder(path: String) {
+        return suspendCoroutine { continuation ->
+            val filesToSend = FileTreeUtils.getFilesForDirectory(path).toMutableList()
+            PoolCoordinator(
+                pool = clientsPool,
+                files = filesToSend,
+                basePath = path,
+                onCompliteSending = {
+                    continuation.resume(Unit)
+                }
+            ).start()
+        }
     }
 
 
     private fun createClients(ports: List<Int>) {
-        TODO("Not yet implemented")
+        ports.forEach {
+            val subClient = BaseSocketClient {}
+            subClient.connect(ip = ip, port = it)
+            subClient.startHandleClientMessages()
+            clientsPool.add(subClient)
+        }
     }
 }

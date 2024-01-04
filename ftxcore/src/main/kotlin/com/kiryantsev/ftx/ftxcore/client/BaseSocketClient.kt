@@ -71,41 +71,42 @@ class BaseSocketClient(
     }
 
 
-    suspend fun sendFile(file: File, basePath: String): Boolean =  withContext(coroutineScope.coroutineContext) {
-        val path = file.path.replace(basePath, "")
-        try {
-            _state.update { ClientState.DO_WORK }
-            val size = file.length()
-            val output = client?.getOutputStream()
-            output?.write(
-                StartFileSendingMessage(
-                    sizeInBytes = size,
-                    relativePathWithName = path
-                ).toStreamedMessage()
-            )
+    fun sendFile(file: File, basePath: String): Deferred<Boolean> =
+        coroutineScope.async {
+            val path = file.path.replace(basePath, "")
+            try {
+                _state.update { ClientState.DO_WORK }
+                val size = file.length()
+                val output = client?.getOutputStream()
+                output?.write(
+                    StartFileSendingMessage(
+                        sizeInBytes = size,
+                        relativePathWithName = path
+                    ).toStreamedMessage()
+                )
 
-            file.inputStream().transferTo(output!!)
+                file.inputStream().transferTo(output!!)
 
-            return@withContext withTimeout(
-                timeout = 15.toDuration(DurationUnit.SECONDS)
-            ) {
-                suspendCoroutine<Boolean> { cont ->
-                    coroutineScope.launch {
-                        messagesFlow.filterIsInstance<FileReceivedMessage>().filter { it.path == path }
-                            .collectLatest {
-                                cont.resume(true)
-                            }
+                return@async withTimeout(
+                    timeout = 15.toDuration(DurationUnit.SECONDS)
+                ) {
+                    suspendCoroutine<Boolean> { cont ->
+                        coroutineScope.launch {
+                            messagesFlow.filterIsInstance<FileReceivedMessage>().filter { it.path == path }
+                                .collectLatest {
+                                    cont.resume(true)
+                                }
+                        }
+                        _state.update { ClientState.READY }
                     }
-                    _state.update { ClientState.READY }
                 }
+
+
+            } catch (e: Exception) {
+                println("Error of sending file $path $e")
+                _state.update { ClientState.READY }
+                return@async false
             }
-
-
-        } catch (e: Exception) {
-            println("Error of sending file $path $e")
-            _state.update { ClientState.READY }
-            return@withContext false
-        }
     }
 
 
