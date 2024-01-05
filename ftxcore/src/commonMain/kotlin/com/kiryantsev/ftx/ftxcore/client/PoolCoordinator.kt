@@ -3,7 +3,9 @@
 package com.kiryantsev.ftx.ftxcore.client
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
@@ -36,7 +38,8 @@ internal class PoolCoordinator(
                     //take new file
                     takeNewFile(client)
                     completeFilesCount += 1
-//                    runBlocking { progress.tryEmit("$completeFilesCount/${files.size}") }
+                    // todo wtf - its block sending
+//                    GlobalScope.launch { progress.tryEmit("$completeFilesCount/${files.size}") }
                 } else {
                     println("ClientUploadError : ${file.path} $it")
                     // retry

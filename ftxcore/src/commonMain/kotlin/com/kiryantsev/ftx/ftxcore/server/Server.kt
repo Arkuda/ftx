@@ -5,6 +5,7 @@ package com.kiryantsev.ftx.ftxcore.server
 import com.kiryantsev.ftx.ftxcore.data.SocketMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import java.util.concurrent.Executors
 
 
 /*
@@ -24,7 +25,7 @@ algo:
 public class Server(private val basePath: String) {
 
     public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
-    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private val coroutineScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() )
 
 
     private val coreServer = BaseSocketServer(
@@ -42,6 +43,7 @@ public class Server(private val basePath: String) {
             withContext(Dispatchers.IO) {
                 coreServer.handleClientMessages(
                     client = coreServer.awaitClientConnection(),
+                    coroutineScope = coroutineScope,
                 )
             }
         }
@@ -69,6 +71,7 @@ public class Server(private val basePath: String) {
                 withContext(Dispatchers.IO) {
                     subServ.handleClientMessages(
                         client = subServ.awaitClientConnection(),
+                        coroutineScope = coroutineScope
                     )
                     subServ.setThisServerToTransfer()
                 }

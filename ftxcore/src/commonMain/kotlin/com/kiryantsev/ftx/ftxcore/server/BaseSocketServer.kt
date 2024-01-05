@@ -50,9 +50,9 @@ internal class BaseSocketServer(
         }
     }
 
-    suspend fun handleClientMessages(client: Socket) {
+    suspend fun handleClientMessages(client: Socket, coroutineScope: CoroutineScope) {
         client.keepAlive = true
-        GlobalScope.launch {
+        GlobalScope.async {
             while (client.isConnected) {
                 val scanner = Scanner(client.getInputStream())
 
@@ -61,7 +61,7 @@ internal class BaseSocketServer(
                         val str = scanner.nextLine()
                         val message = Json.decodeFromString<SocketMessage>(str)
                         messagesFlow.emit(message)
-                        onMessageReceived(message, client)
+                        onMessageReceived(message, client, coroutineScope)
                     } catch (e: Exception) {
                         println("Parse command from socket error: $e")
                     }
@@ -72,11 +72,11 @@ internal class BaseSocketServer(
 
     }
 
-    private fun onMessageReceived(message: SocketMessage, client: Socket) {
+    private fun onMessageReceived(message: SocketMessage, client: Socket, coroutineScope: CoroutineScope) {
         when (message) {
 
             is AvailablePoolSizeMessage -> {
-                val thisPoolSize = 64
+                val thisPoolSize = 20
                 Dispatchers.IO.limitedParallelism(thisPoolSize * 2)
 
                 val chosenPoolSize = minOf(message.size, thisPoolSize)
@@ -99,8 +99,11 @@ internal class BaseSocketServer(
                 if (state != ServerState.AWAIT_MESSAGE) {
                     println("Socket message error: received StartFileSendingMessage when sate is $state")
                 }
-                state = ServerState.AWAIT_FILE
-                receiveFile(client, message)
+
+                coroutineScope.launch {
+                    state = ServerState.AWAIT_FILE
+                    receiveFile(client, message)
+                }
             }
 
 

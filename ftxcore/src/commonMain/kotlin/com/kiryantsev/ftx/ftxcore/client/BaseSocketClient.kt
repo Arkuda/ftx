@@ -12,6 +12,7 @@ import java.io.OutputStreamWriter
 import java.io.PrintWriter
 import java.net.Socket
 import java.util.*
+import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.DurationUnit
@@ -26,7 +27,8 @@ internal class BaseSocketClient(
 
     private var client: Socket? = null
     private val _state = MutableStateFlow(ClientState.NOT_CONNECTED)
-    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private val coroutineScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() )
+//    private val coroutineScope = newSingleThreadContext(UUID.randomUUID().toString())
 
     internal val state = _state.asStateFlow()
 
@@ -140,7 +142,6 @@ internal class BaseSocketClient(
     private fun Socket.sendMessage(socketMessage: SocketMessage) {
         val writer = PrintWriter(getOutputStream())
         writer.println(Json.encodeToString(socketMessage))
-//        writer.println( socketMessage.toStreamedMessage())
         writer.flush()
     }
 }
