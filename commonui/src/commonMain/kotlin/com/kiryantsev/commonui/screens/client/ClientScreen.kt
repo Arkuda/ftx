@@ -24,12 +24,8 @@ public fun ClientScreen(
     var chosenDirectory by remember { mutableStateOf<String?>(null) }
     var showChooseDirDialog by remember { mutableStateOf(false) }
     var ipAddresses by remember { mutableStateOf("") }
-
     var state by remember { mutableStateOf(ClientScreenState.ENTER_IP) }
-
-
     val coroutineScope = rememberCoroutineScope()
-
     val snackbarHostState = remember { SnackbarHostState() }
 
 
@@ -53,6 +49,7 @@ public fun ClientScreen(
 
             when (state) {
                 ClientScreenState.ENTER_IP -> columnScope.apply {
+                    Text("ip address of server")
                     TextField(
                         value = ipAddresses,
                         onValueChange = { newStr -> ipAddresses = newStr }
@@ -63,12 +60,18 @@ public fun ClientScreen(
                             client = Client(ipAddresses)
                             state = ClientScreenState.TRY_CONNECTING
                             coroutineScope.launch {
-                                try {
+
+                                state = try {
                                     client!!.init()
+                                    ClientScreenState.CHOOSE_FOLDER
                                 } catch (e: Exception) {
                                     //todo show error
                                     snackbarHostState.showSnackbar("Error when connect to server $e")
-                                    state = ClientScreenState.ENTER_IP
+                                    ClientScreenState.ENTER_IP
+                                }
+                                // todo if debug
+                                client!!.messagesFlow.collect {
+                                    snackbarHostState.showSnackbar(it.toString())
                                 }
                             }
                         },
@@ -133,7 +136,8 @@ public fun ClientScreen(
                 }
 
                 ClientScreenState.SENDING_FILES -> columnScope.apply {
-                    Text("Sending files")
+                    val progress = client!!.progress.collectAsState("")
+                    Text("Sending files ${progress.value}")
                     Spacer(Modifier.height(16.dp))
                     CircularProgressIndicator()
                 }

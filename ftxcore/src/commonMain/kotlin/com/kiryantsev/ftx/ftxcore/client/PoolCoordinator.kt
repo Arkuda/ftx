@@ -2,10 +2,10 @@
 
 package com.kiryantsev.ftx.ftxcore.client
 
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.runBlocking
 import java.io.File
-import kotlin.coroutines.suspendCoroutine
 
 internal class PoolCoordinator(
     val pool: List<BaseSocketClient>,
@@ -17,20 +17,26 @@ internal class PoolCoordinator(
 
     private val filesToSend = files.toMutableList()
 
+    public val progress = MutableSharedFlow<String>()
+
 
     @ExperimentalCoroutinesApi
     fun start() = pool.forEach(this::takeNewFile)
 
     private fun takeNewFile(client: BaseSocketClient) {
         val file = filesToSend.firstOrNull()
+        var completeFilesCount = 0
         if (file != null) {
             //todo retrying and other stuff
             filesToSend.remove(file)
             val deferred = client.sendFile(file, basePath)
+
             deferred.invokeOnCompletion {
                 if (it == null) {
                     //take new file
                     takeNewFile(client)
+                    completeFilesCount += 1
+//                    runBlocking { progress.tryEmit("$completeFilesCount/${files.size}") }
                 } else {
                     println("ClientUploadError : ${file.path} $it")
                     // retry
@@ -39,11 +45,9 @@ internal class PoolCoordinator(
                 }
             }
         } else {
-            // file pool is empty
-            val inWorkClients = pool.filter { it.state.value == ClientState.DO_WORK }.size
-            if (inWorkClients == 0) {
-                onCompliteSending.invoke()
-            }
+           if(completeFilesCount >= files.size ){
+               onCompliteSending()
+           }
         }
     }
 

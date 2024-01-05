@@ -3,11 +3,9 @@
 package com.kiryantsev.ftx.ftxcore.client
 
 import com.kiryantsev.ftx.ftxcore.data.FileReceivedMessage
+import com.kiryantsev.ftx.ftxcore.data.SocketMessage
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.DurationUnit
@@ -31,8 +29,9 @@ algo:
 
 public class Client(
     private val ip: String,
-    private val port: Int = 8099
-) {
+    private val port: Int = 8099,
+
+    ) {
 
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -43,6 +42,9 @@ public class Client(
 
     private val clientsPool = mutableListOf<BaseSocketClient>()
 
+    public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
+
+    public val progress: MutableSharedFlow<String> = MutableSharedFlow<String>()
 
     public suspend fun init() {
         coordinator.connect(ip = ip, port = port)
@@ -67,14 +69,18 @@ public class Client(
         return coroutineScope.launch {
             return@launch suspendCoroutine { continuation ->
                 val filesToSend = FileTreeUtils.getFilesForDirectory(path).toMutableList()
-                PoolCoordinator(
+                val poolCoordinator = PoolCoordinator(
                     pool = clientsPool,
                     files = filesToSend,
                     basePath = path,
                     onCompliteSending = {
                         continuation.resume(Unit)
                     }
-                ).start()
+                )
+                poolCoordinator.start()
+                coroutineScope.launch {
+                    progress.emitAll(poolCoordinator.progress)
+                }
             }
         }
     }
@@ -82,7 +88,7 @@ public class Client(
 
     private fun createClients(ports: List<Int>) {
         ports.forEach {
-            val subClient = BaseSocketClient {}
+            val subClient = BaseSocketClient(onCreateClients = {}, messagesFlow = messagesFlow)
             subClient.connect(ip = ip, port = it)
             subClient.startHandleClientMessages()
             clientsPool.add(subClient)

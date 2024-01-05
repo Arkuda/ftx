@@ -1,50 +1,58 @@
 package com.kiryantsev.ftx.ftxcore.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 
-internal abstract class SocketMessage {
-    fun toStreamedMessage() : ByteArray{
-        return Json.encodeToString(this).toByteArray(Charsets.UTF_8)
-    }
+@Serializable
+public sealed class SocketMessage {
+    public fun toJson() : String =Json.encodeToString(this)
 
 }
 
 @Serializable
-internal object OkMessage : SocketMessage()
-
-internal object RetryFileSend : SocketMessage()
-
-@Serializable
-internal object ErrorMessage: SocketMessage()
+@SerialName("OkMessage")
+public object OkMessage : SocketMessage()
 
 @Serializable
-internal data class AvailablePoolSizeMessage(
+@SerialName("RetryFileSend")
+public object RetryFileSend : SocketMessage()
+
+@Serializable
+@SerialName("ErrorMessage")
+public object ErrorMessage: SocketMessage()
+
+@Serializable
+@SerialName("AvailablePoolSizeMessage")
+public data class AvailablePoolSizeMessage(
     val size: Int
 ) : SocketMessage()
 
-
 @Serializable
-internal data class CheckFreeSpaceForTransferMessage(
+@SerialName("CheckFreeSpaceForTransferMessage")
+public data class CheckFreeSpaceForTransferMessage(
     val size: Long,
 ): SocketMessage()
 
 @Serializable
-internal data class ChosenPoolSizeMessage(
+@SerialName("ChosenPoolSizeMessage")
+public data class ChosenPoolSizeMessage(
     val size: Int,
     val ports: List<Int>
 ) : SocketMessage()
 
 @Serializable
-internal data class StartFileSendingMessage(
+@SerialName("StartFileSendingMessage")
+public data class StartFileSendingMessage(
     val sizeInBytes: Long,
     val relativePathWithName: String,
 ) : SocketMessage()
 
 
 @Serializable
-internal data class FileReceivedMessage(
+@SerialName("FileReceivedMessage")
+public data class FileReceivedMessage(
     val path : String
 ): SocketMessage()

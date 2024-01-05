@@ -5,10 +5,9 @@ package com.kiryantsev.ftx.ftxcore.server
 import com.kiryantsev.ftx.ftxcore.Utils
 import com.kiryantsev.ftx.ftxcore.data.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
+import java.io.*
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.*
@@ -20,20 +19,22 @@ import java.util.*
 internal class BaseSocketServer(
     private val port: Int,
     private val basePath: String,
-    private val onCreateServersWithPorts: (List<Int>) -> Unit,
+    private val onCreateServersWithPorts: (Int) -> List<Int>,
+    private val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>(),
 ) {
 
     private var state: ServerState = ServerState.WAIT_CONNECTION
     private val socket = ServerSocket(port)
 
 
-    fun setThisServerToTransfer(){
+    fun setThisServerToTransfer() {
         state = ServerState.AWAIT_MESSAGE
     }
 
+    fun getResultPort(): Int = socket.localPort
 
-    fun start() {
-        val someDeferredToDispose = GlobalScope.async {
+    fun start(coroutineScope: CoroutineScope) {
+        val someDeferredToDispose = coroutineScope.async {
             return@async withContext(Dispatchers.IO) {
                 return@withContext socket.accept()
             }
@@ -51,21 +52,21 @@ internal class BaseSocketServer(
 
     suspend fun handleClientMessages(client: Socket) {
         client.keepAlive = true
-
-        val scanner = Scanner(withContext(Dispatchers.IO) {
-            client.getInputStream()
-        })
-
-        withContext(Dispatchers.IO) {
+        GlobalScope.launch {
             while (client.isConnected) {
+                val scanner = Scanner(client.getInputStream())
+
                 if (scanner.hasNextLine() && ServerState.isNeedListeningMessage(state)) {
                     try {
                         val str = scanner.nextLine()
-                        onMessageReceived(Json.decodeFromString<SocketMessage>(str), client)
+                        val message = Json.decodeFromString<SocketMessage>(str)
+                        messagesFlow.emit(message)
+                        onMessageReceived(message, client)
                     } catch (e: Exception) {
                         println("Parse command from socket error: $e")
                     }
                 }
+                delay(100)
             }
         }
 
@@ -76,21 +77,20 @@ internal class BaseSocketServer(
 
             is AvailablePoolSizeMessage -> {
                 val thisPoolSize = 64
-                Dispatchers.IO.limitedParallelism(thisPoolSize)
+                Dispatchers.IO.limitedParallelism(thisPoolSize * 2)
 
                 val chosenPoolSize = minOf(message.size, thisPoolSize)
-                val chosenPorts = (80000..(80000 + chosenPoolSize)).toMutableList().apply {
-                    this[0] = port
+                val chosenPorts = onCreateServersWithPorts(chosenPoolSize)
+
+                PrintWriter(client.getOutputStream()).apply {
+                    println(
+                        ChosenPoolSizeMessage(
+                            chosenPoolSize,
+                            ports = chosenPorts
+                        ).toJson()
+                    )
+                    flush()
                 }
-
-                onCreateServersWithPorts(chosenPorts)
-
-                client.getOutputStream().write(
-                    ChosenPoolSizeMessage(
-                        chosenPoolSize,
-                        ports = chosenPorts
-                    ).toStreamedMessage()
-                )
                 state = ServerState.AWAIT_MESSAGE
             }
 
@@ -104,14 +104,27 @@ internal class BaseSocketServer(
             }
 
 
-            is CheckFreeSpaceForTransferMessage  -> {
-              val targetFolderFreeSpace =  File(basePath).freeSpace
-                if(targetFolderFreeSpace > message.size){
-                    client.getOutputStream().write(OkMessage.toStreamedMessage())
-                }else {
-                    client.getOutputStream().write(ErrorMessage.toStreamedMessage())
+            is CheckFreeSpaceForTransferMessage -> {
+                val targetFolderFreeSpace = File(basePath).freeSpace
+                if (targetFolderFreeSpace > message.size) {
+                    PrintWriter(client.getOutputStream()).apply {
+                        println(
+                            OkMessage.toJson()
+                        )
+                        flush()
+                    }
+
+                } else {
+                    PrintWriter(client.getOutputStream()).apply {
+                        println(
+                            ErrorMessage.toJson()
+                        )
+                        flush()
+                    }
                 }
             }
+
+            else -> {}
 
 
         }
@@ -123,28 +136,59 @@ internal class BaseSocketServer(
             Utils.createDirs(resPath)
             val file = File(resPath)
             file.createNewFile()
+
             client.getInputStream().transferTo(file.outputStream(), startFileSendingMessage.sizeInBytes)
-            client.getOutputStream().write(OkMessage.toStreamedMessage())
+
+            PrintWriter(client.getOutputStream()).apply {
+                println(
+                    FileReceivedMessage(startFileSendingMessage.relativePathWithName).toJson()
+                )
+                flush()
+            }
             state = ServerState.AWAIT_MESSAGE
         } catch (e: Exception) {
             println("Error when receive file ${startFileSendingMessage.relativePathWithName} : $e")
-            client.getOutputStream().write(RetryFileSend.toStreamedMessage())
+            PrintWriter(client.getOutputStream()).apply {
+                println(
+                    ErrorMessage.toJson()
+                )
+                flush()
+            }
 
         }
     }
 
+
 }
 
-private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Long, bufferSize: Int = 1024) {
+private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Long, bufferSize: Int = 8192) {
     var transferred: Long = 0
     val buffer = ByteArray(bufferSize)
-    var read: Int
+    var countOfLoadedBytesInThisCycleBytes = 1
 
-    while (this.read(buffer, 0, bufferSize).also { read = it } >= 0 && transferred < sizeInBytes) {
-        outputStream.write(buffer, 0, read)
-        transferred += read.toLong()
+    countOfLoadedBytesInThisCycleBytes = this.read(buffer)
+
+    while ((countOfLoadedBytesInThisCycleBytes > 0) && transferred < sizeInBytes) {
+        transferred += countOfLoadedBytesInThisCycleBytes
+        outputStream.write(buffer, 0, countOfLoadedBytesInThisCycleBytes)
+        countOfLoadedBytesInThisCycleBytes = this.read(buffer)
     }
+    outputStream.write(buffer, 0, countOfLoadedBytesInThisCycleBytes)
+    outputStream.flush()
 }
+
+//private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Long, bufferSize: Int = 1024) {
+//    var transferred: Long = 0
+//    val buffer = ByteArray(bufferSize)
+//    var read: Int
+//
+//    while (this.read(buffer, 0, bufferSize).also { read = it } >= 0 && transferred < sizeInBytes) {
+//        outputStream.write(buffer, 0, read)
+//        transferred += read.toLong()
+//    }
+//}
+
+
 
 private enum class ServerState {
     WAIT_CONNECTION,

@@ -3,8 +3,7 @@ package com.kiryantsev.commonui.screens.server
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.material3.Button
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +11,8 @@ import androidx.compose.ui.Modifier
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.kiryantsev.commonui.screens.Navigator
 import com.kiryantsev.ftx.ftxcore.server.Server
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.*
@@ -24,12 +25,16 @@ public fun ServerScreen(
 
     var chosenDirectory by remember { mutableStateOf<String?>(null) }
     var showChooseDirDialog by remember { mutableStateOf(false) }
-
     var isServerStarted by remember { mutableStateOf(false) }
     var server by remember { mutableStateOf<Server?>(null) }
     var ipAddresses by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Surface {
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) {
 
 
         DirectoryPicker(showChooseDirDialog) { path ->
@@ -46,7 +51,7 @@ public fun ServerScreen(
             if (!isServerStarted) {
                 Text(
                     if (chosenDirectory == null)
-                        "Need choose dialog"
+                        "Need choose directory"
                     else
                         "Chosen directory $chosenDirectory"
                 )
@@ -67,6 +72,11 @@ public fun ServerScreen(
                             isServerStarted = true
                             server = Server(basePath = chosenDirectory!!)
                             server?.start()
+                            coroutineScope.launch {
+                                server!!.messagesFlow.collect {
+                                    snackbarHostState.showSnackbar(it.toString())
+                                }
+                            }
                         }
                     )
                 }

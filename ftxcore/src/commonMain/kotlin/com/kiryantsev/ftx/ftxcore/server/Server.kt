@@ -2,7 +2,9 @@
 
 package com.kiryantsev.ftx.ftxcore.server
 
+import com.kiryantsev.ftx.ftxcore.data.SocketMessage
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 
 /*
@@ -21,19 +23,26 @@ algo:
 
 public class Server(private val basePath: String) {
 
+    public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+
+
     private val coreServer = BaseSocketServer(
         port = 8099,
         basePath = basePath,
-        onCreateServersWithPorts = this::createAdditionalServers
+        onCreateServersWithPorts = this::createAdditionalServers,
+        messagesFlow = messagesFlow,
     )
 
     private var disposableJobs: MutableList<Job> = mutableListOf()
 
 
     public fun start() {
-        val coreJob = GlobalScope.launch {
+        val coreJob = coroutineScope.launch {
             withContext(Dispatchers.IO) {
-                coreServer.handleClientMessages(coreServer.awaitClientConnection())
+                coreServer.handleClientMessages(
+                    client = coreServer.awaitClientConnection(),
+                )
             }
         }
         disposableJobs.add(coreJob)
@@ -45,21 +54,28 @@ public class Server(private val basePath: String) {
         disposableJobs.forEach(Job::cancel)
     }
 
-    private fun createAdditionalServers(ports: List<Int>) {
-        ports.forEach { port ->
-            val subJob = GlobalScope.launch {
+    private fun createAdditionalServers(poolSize: Int): List<Int> {
+        val chosenPorts = mutableListOf<Int>()
+
+        repeat(poolSize) {
+            val subServ = BaseSocketServer(
+                port = 0,
+                basePath = basePath,
+                onCreateServersWithPorts = { _ -> listOf() }
+            )
+            chosenPorts.add(subServ.getResultPort())
+
+            val subJob = coroutineScope.launch {
                 withContext(Dispatchers.IO) {
-                    val subServ = BaseSocketServer(
-                        port = port,
-                        basePath = basePath,
-                        onCreateServersWithPorts = {}
+                    subServ.handleClientMessages(
+                        client = subServ.awaitClientConnection(),
                     )
-                    subServ.handleClientMessages(subServ.awaitClientConnection())
                     subServ.setThisServerToTransfer()
                 }
             }
             disposableJobs.add(subJob)
         }
+        return chosenPorts
     }
 
 

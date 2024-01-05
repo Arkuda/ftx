@@ -10,17 +10,19 @@ internal class FileTreeUtils {
             val foldersToScan = mutableListOf<File>(File(path))
 
             while(foldersToScan.isNotEmpty()){
+                val newFoldersToScan =  mutableListOf<File>()
                 foldersToScan.forEach { folder ->
                     folder.listFiles()?.forEach { item ->
                         if(item.isDirectory){
-                            foldersToScan.add(item)
+                           newFoldersToScan.add(item)
                         }
                         if(item.isFile){
                             fileList.add(item)
                         }
                     }
-                    foldersToScan.remove(folder)
                 }
+                foldersToScan.clear()
+                foldersToScan.addAll(newFoldersToScan)
             }
 
             return fileList
