@@ -18,22 +18,18 @@ import kotlin.coroutines.suspendCoroutine
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-@ExperimentalCoroutinesApi
+
 internal class BaseSocketClient(
     private val onCreateClients: (List<Int>) -> Unit,
     private val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>(),
-
-    ) {
+) {
 
     private var client: Socket? = null
     private val _state = MutableStateFlow(ClientState.NOT_CONNECTED)
-    private val coroutineScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() )
-//    private val coroutineScope = newSingleThreadContext(UUID.randomUUID().toString())
+    public val state = _state.asStateFlow()
 
-    internal val state = _state.asStateFlow()
 
     fun connect(ip: String, port: Int) {
-
         _state.update { ClientState.CONNECTING }
         client = Socket(ip, port)
     }
@@ -54,7 +50,6 @@ internal class BaseSocketClient(
     }
 
 
-    // run in io dispatcher
     fun startHandleClientMessages() {
         if (client?.isConnected == true) {
             GlobalScope.launch {
@@ -87,9 +82,8 @@ internal class BaseSocketClient(
     }
 
 
-    @Suppress("NewApi")
-    fun sendFile(file: File, basePath: String): Deferred<Boolean> =
-        coroutineScope.async {
+    fun sendFile(file: File, basePath: String, onFileSendComplete: (Exception?) -> Unit): Thread =
+        Thread {
             val path = file.path.replace(basePath, "")
             try {
                 _state.update { ClientState.DO_WORK }
@@ -110,17 +104,22 @@ internal class BaseSocketClient(
                 }
 
 
-                return@async withTimeout(
-                    timeout = 15.toDuration(DurationUnit.SECONDS)
-                ) {
-                    suspendCoroutine<Boolean> { cont ->
-                        coroutineScope.launch {
+                runBlocking {
+                    try {
+                        withTimeout(
+                            timeout = 15.toDuration(DurationUnit.SECONDS)
+                        ) {
                             messagesFlow.filterIsInstance<FileReceivedMessage>().filter { it.path == path }
                                 .collect {
-                                    cont.resume(true)
+                                    onFileSendComplete.invoke(null)
+                                    _state.update { ClientState.READY }
+
                                 }
                         }
+                    } catch (e: Exception) {
+                        onFileSendComplete.invoke(e)
                         _state.update { ClientState.READY }
+
                     }
                 }
 
@@ -128,24 +127,18 @@ internal class BaseSocketClient(
             } catch (e: Exception) {
                 println("Error of sending file $path $e")
                 _state.update { ClientState.READY }
-                return@async false
+                onFileSendComplete.invoke(e)
+
             }
-        }
-
-
-    fun dispose() {
-        client?.close()
-    }
-
-
+        }.apply { start() }
 
     private fun Socket.sendMessage(socketMessage: SocketMessage) {
         val writer = PrintWriter(getOutputStream())
         writer.println(Json.encodeToString(socketMessage))
         writer.flush()
     }
-}
 
+}
 
 internal enum class ClientState {
     NOT_CONNECTED,
