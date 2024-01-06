@@ -25,7 +25,6 @@ algo:
 public class Server(private val basePath: String) {
 
     public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
-    private val coroutineScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher() )
 
 
     private val coreServer = BaseSocketServer(
@@ -35,26 +34,13 @@ public class Server(private val basePath: String) {
         messagesFlow = messagesFlow,
     )
 
-    private var disposableJobs: MutableList<Job> = mutableListOf()
-
 
     public fun start() {
-        val coreJob = coroutineScope.launch {
-            withContext(Dispatchers.IO) {
-                coreServer.handleClientMessages(
-                    client = coreServer.awaitClientConnection(),
-                    coroutineScope = coroutineScope,
-                )
-            }
-        }
-        disposableJobs.add(coreJob)
-        coreJob.start()
+        Thread {
+            coreServer.start()
+        }.start()
     }
 
-
-    public fun stopAll() {
-        disposableJobs.forEach(Job::cancel)
-    }
 
     private fun createAdditionalServers(poolSize: Int): List<Int> {
         val chosenPorts = mutableListOf<Int>()
@@ -67,18 +53,19 @@ public class Server(private val basePath: String) {
             )
             chosenPorts.add(subServ.getResultPort())
 
-            val subJob = coroutineScope.launch {
-                withContext(Dispatchers.IO) {
-                    subServ.handleClientMessages(
-                        client = subServ.awaitClientConnection(),
-                        coroutineScope = coroutineScope
-                    )
-                    subServ.setThisServerToTransfer()
-                }
-            }
-            disposableJobs.add(subJob)
+            Thread {
+                subServ.start()
+            }.start()
+
         }
         return chosenPorts
+    }
+
+
+
+
+    public fun stopAll() {
+//        disposableJobs.forEach(Job::cancel)
     }
 
 
