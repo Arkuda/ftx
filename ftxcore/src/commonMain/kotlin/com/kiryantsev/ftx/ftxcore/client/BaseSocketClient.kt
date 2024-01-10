@@ -109,17 +109,26 @@ internal class BaseSocketClient(
                         withTimeout(
                             timeout = 15.toDuration(DurationUnit.SECONDS)
                         ) {
-                            messagesFlow.filterIsInstance<FileReceivedMessage>().filter { it.path == path }
+                            messagesFlow.filter {
+                                when (it) {
+                                    is FileReceivedMessage -> it.path == path
+                                    is ErrorMessage -> true
+                                    else -> false
+                                }
+                            }
                                 .collect {
-                                    onFileSendComplete.invoke(null)
                                     _state.update { ClientState.READY }
 
+                                    if (it is FileReceivedMessage){
+                                        onFileSendComplete.invoke(null)
+                                    }else {
+                                        onFileSendComplete.invoke(java.lang.Exception("File send error"))
+                                    }
                                 }
                         }
                     } catch (e: Exception) {
-                        onFileSendComplete.invoke(e)
                         _state.update { ClientState.READY }
-
+                        onFileSendComplete.invoke(e)
                     }
                 }
 

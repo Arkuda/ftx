@@ -6,6 +6,7 @@ import com.kiryantsev.ftx.ftxcore.data.SocketMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import java.util.concurrent.Executors
+import kotlin.system.measureTimeMillis
 
 
 /*
@@ -39,29 +40,40 @@ public class Server(private val basePath: String) {
         Thread {
             coreServer.start()
         }.start()
+
     }
 
 
     private fun createAdditionalServers(poolSize: Int): List<Int> {
+
         val chosenPorts = mutableListOf<Int>()
+        val threads = mutableListOf<Thread>()
 
-        repeat(poolSize) {
-            val subServ = BaseSocketServer(
-                port = 0,
-                basePath = basePath,
-                onCreateServersWithPorts = { _ -> listOf() }
-            )
-            chosenPorts.add(subServ.getResultPort())
+        val measured = measureTimeMillis {
 
-            Thread {
-                subServ.start()
-            }.start()
+            repeat(poolSize) {
+                val subServ = BaseSocketServer(
+                    port = 0,
+                    basePath = basePath,
+                    onCreateServersWithPorts = { _ -> listOf() }
+                )
+                chosenPorts.add(subServ.getResultPort())
 
+                threads.add(Thread {
+                    subServ.start()
+                })
+            }
+
+            GlobalScope.launch {
+                withContext(Dispatchers.IO) {
+                    threads.forEach(Thread::run)
+                }
+            }
         }
+        println("Time measured $measured")
+
         return chosenPorts
     }
-
-
 
 
     public fun stopAll() {

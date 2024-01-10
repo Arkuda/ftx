@@ -5,6 +5,7 @@ package com.kiryantsev.ftx.ftxcore.client
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -45,16 +46,20 @@ public class Client(
     @OptIn(DelicateCoroutinesApi::class)
     public suspend fun init() {
         clientCoordinator.connect(ip = ip, port = port)
-        clientCoordinator.coordinatePool()
         clientCoordinator.startHandleClientMessages()
+        clientCoordinator.coordinatePool()
         clientsPool.add(clientCoordinator)
         return suspendCoroutine { continuation ->
             GlobalScope.launch {
-                withTimeout(timeout = 15.toDuration(DurationUnit.SECONDS)) {
-                    clientCoordinator.state.filter { it == ClientState.READY }.collect {
-                        continuation.resume(Unit)
-                    }
-                }
+               try{
+                   withTimeout(timeout = 15.toDuration(DurationUnit.SECONDS)) {
+                       clientCoordinator.state.filter { it == ClientState.READY }.collect {
+                           continuation.resume(Unit)
+                       }
+                   }
+               }catch (e: Exception){
+                   continuation.resumeWithException(e)
+               }
             }
         }
     }
@@ -74,6 +79,7 @@ public class Client(
                         }
 
                     )
+                    poolCoordinator!!.coordinate()
                 }
             }
         }

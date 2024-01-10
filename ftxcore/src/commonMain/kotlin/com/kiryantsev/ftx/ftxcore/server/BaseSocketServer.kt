@@ -23,7 +23,7 @@ internal class BaseSocketServer(
     private val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>(),
 ) {
 
-    var state: ServerState = ServerState.WAIT_CONNECTION
+    @Volatile var state: ServerState = ServerState.WAIT_CONNECTION
     private val socket = ServerSocket(port)
 
     fun start() {
@@ -31,9 +31,9 @@ internal class BaseSocketServer(
         val connection = socket.accept()
         state = ServerState.CONNECTED
         connection.keepAlive = true
+        val scanner = Scanner(connection.getInputStream())
 
         while (connection.isConnected) {
-            val scanner = Scanner(connection.getInputStream())
 
             if (scanner.hasNextLine() && ServerState.isNeedListeningMessage(state)) {
                 try {
@@ -54,7 +54,7 @@ internal class BaseSocketServer(
         when (message) {
 
             is AvailablePoolSizeMessage -> {
-                val thisPoolSize = 20
+                val thisPoolSize = 10
 
                 val chosenPoolSize = minOf(message.size, thisPoolSize)
                 val chosenPorts = onCreateServersWithPorts(chosenPoolSize)
@@ -109,6 +109,7 @@ internal class BaseSocketServer(
 
     private fun receiveFile(client: Socket, startFileSendingMessage: StartFileSendingMessage) {
         try {
+            state = ServerState.AWAIT_FILE
             val resPath = "$basePath/${startFileSendingMessage.relativePathWithName}"
             Utils.createDirs(resPath)
             val file = File(resPath)
@@ -116,14 +117,17 @@ internal class BaseSocketServer(
 
             client.getInputStream().transferTo(file.outputStream(), startFileSendingMessage.sizeInBytes)
 
+            state = ServerState.AWAIT_MESSAGE
+
             PrintWriter(client.getOutputStream()).apply {
                 println(
                     FileReceivedMessage(startFileSendingMessage.relativePathWithName).toJson()
                 )
                 flush()
             }
-            state = ServerState.AWAIT_MESSAGE
+
         } catch (e: Exception) {
+            state = ServerState.AWAIT_MESSAGE
             println("Error when receive file ${startFileSendingMessage.relativePathWithName} : $e")
             PrintWriter(client.getOutputStream()).apply {
                 println(

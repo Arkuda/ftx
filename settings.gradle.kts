@@ -1,3 +1,6 @@
+//plugins {
+//    id("org.gradle.toolchains.foojay-resolver-convention") version "0.5.0"
+//}
 pluginManagement {
     repositories {
         google()
@@ -14,3 +17,4 @@ include(":desktop")
 include(":commonui")
 include(":ftxcore")
 //include(":ftxcore")
+include("ftxcli")

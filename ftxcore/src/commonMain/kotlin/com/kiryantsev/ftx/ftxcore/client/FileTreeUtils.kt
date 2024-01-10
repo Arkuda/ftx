@@ -16,7 +16,7 @@ internal class FileTreeUtils {
                         if(item.isDirectory){
                            newFoldersToScan.add(item)
                         }
-                        if(item.isFile){
+                        if(item.isFile && item.length() > 0){
                             fileList.add(item)
                         }
                     }

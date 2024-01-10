@@ -70,9 +70,9 @@ public fun ClientScreen(
                                     ClientScreenState.ENTER_IP
                                 }
                                 // todo if debug
-                                client!!.messagesFlow.collect {
-                                    snackbarHostState.showSnackbar(it.toString())
-                                }
+//                                client!!.messagesFlow.collect {
+//                                    snackbarHostState.showSnackbar(it.toString())
+//                                }
                             }
                         },
                         content = { Text("Connect") }
@@ -136,8 +136,9 @@ public fun ClientScreen(
                 }
 
                 ClientScreenState.SENDING_FILES -> columnScope.apply {
-                    val progress = client!!.progress.collectAsState("")
-                    Text("Sending files ${progress.value}")
+//                    val progress = client!!.progress.collectAsState("")
+//                    Text("Sending files ${progress.value}")
+                    Text("Sending files")
                     Spacer(Modifier.height(16.dp))
                     CircularProgressIndicator()
                 }
