@@ -30,6 +30,8 @@ internal class PoolCoordinator(
                                 file = file,
                                 basePath = basePath,
                                 onFileSendComplete = { exception ->
+                                    println("[coordinator] file sended $exception ${file.path}")
+                                    println("filesComplete=$filesComplete files.size=${files.size}")
                                     if (exception == null) {
                                         if(++filesComplete == files.size){
                                             onSendComplete()

@@ -2,11 +2,9 @@
 
 package com.kiryantsev.ftx.ftxcore.server
 
-import com.kiryantsev.ftx.ftxcore.data.SocketMessage
+import com.kiryantsev.ftx.ftxcore.shared.SocketMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
-import java.util.concurrent.Executors
-import kotlin.system.measureTimeMillis
 
 
 /*
@@ -27,7 +25,6 @@ public class Server(private val basePath: String) {
 
     public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
 
-
     private val coreServer = BaseSocketServer(
         port = 8099,
         basePath = basePath,
@@ -35,12 +32,10 @@ public class Server(private val basePath: String) {
         messagesFlow = messagesFlow,
     )
 
-
     public fun start() {
         Thread {
             coreServer.start()
         }.start()
-
     }
 
 
@@ -49,28 +44,19 @@ public class Server(private val basePath: String) {
         val chosenPorts = mutableListOf<Int>()
         val threads = mutableListOf<Thread>()
 
-        val measured = measureTimeMillis {
+        repeat(poolSize) {
+            val subServ = BaseSocketServer(
+                port = 0,
+                basePath = basePath,
+                onCreateServersWithPorts = { _ -> listOf() }
+            )
+            chosenPorts.add(subServ.getResultPort())
 
-            repeat(poolSize) {
-                val subServ = BaseSocketServer(
-                    port = 0,
-                    basePath = basePath,
-                    onCreateServersWithPorts = { _ -> listOf() }
-                )
-                chosenPorts.add(subServ.getResultPort())
-
-                threads.add(Thread {
-                    subServ.start()
-                })
-            }
-
-            GlobalScope.launch {
-                withContext(Dispatchers.IO) {
-                    threads.forEach(Thread::run)
-                }
-            }
+            threads.add(Thread {
+                subServ.start()
+            })
         }
-        println("Time measured $measured")
+        threads.forEach(Thread::run)
 
         return chosenPorts
     }

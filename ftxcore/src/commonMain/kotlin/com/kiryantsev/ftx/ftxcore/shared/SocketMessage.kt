@@ -1,4 +1,4 @@
-package com.kiryantsev.ftx.ftxcore.data
+package com.kiryantsev.ftx.ftxcore.shared
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
