@@ -1,7 +1,7 @@
 package com.kiryantsev.commonui.screens.client
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -12,6 +12,7 @@ import com.kiryantsev.ftx.ftxcore.client.Client
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+
 
 
 @Composable
@@ -44,11 +45,10 @@ public fun ClientScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val columnScope = this
 
 
             when (state) {
-                ClientScreenState.ENTER_IP -> columnScope.apply {
+                ClientScreenState.ENTER_IP ->  {
                     Text("ip address of server")
                     TextField(
                         value = ipAddresses,
@@ -64,7 +64,7 @@ public fun ClientScreen(
                                 state = try {
                                     client!!.init()
                                     ClientScreenState.CHOOSE_FOLDER
-                                } catch (e: Exception) {
+                                } catch (e: Throwable) {
                                     //todo show error
                                     snackbarHostState.showSnackbar("Error when connect to server $e")
                                     ClientScreenState.ENTER_IP
@@ -79,13 +79,13 @@ public fun ClientScreen(
                     )
                 }
 
-                ClientScreenState.TRY_CONNECTING -> columnScope.apply {
+                ClientScreenState.TRY_CONNECTING ->  {
                     Text("connecting")
                     Spacer(Modifier.height(16.dp))
                     CircularProgressIndicator()
                 }
 
-                ClientScreenState.CHOOSE_FOLDER -> columnScope.apply {
+                ClientScreenState.CHOOSE_FOLDER ->  {
                     Text(
                         if (chosenDirectory == null)
                             "Choose folder to send"
@@ -110,20 +110,21 @@ public fun ClientScreen(
                                 try {
                                     state = ClientScreenState.SENDING_FILES
                                     coroutineScope.launch {
-                                        client?.sendFolder(chosenDirectory!!)?.invokeOnCompletion {
-                                            state = ClientScreenState.DONE
-                                        } ?: {
-                                            state = ClientScreenState.ENTER_IP
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(
-                                                    "Have error while sending files\n" +
-                                                            "Restart server app and try again"
-                                                )
+                                        client?.sendFolder(chosenDirectory!!) { e ->
+                                            if (e == null) {
+                                                state = ClientScreenState.DONE
+                                            } else {
+                                                state = ClientScreenState.ENTER_IP
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        "Have error while sending files\n" +
+                                                                "Restart server app and try again"
+                                                    )
+                                                }
                                             }
                                         }
-
                                     }
-                                } catch (e: Exception) {
+                                } catch (e: Throwable) {
                                     state = ClientScreenState.CHOOSE_FOLDER
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar("Error when start sending files $e")
@@ -135,7 +136,7 @@ public fun ClientScreen(
                     }
                 }
 
-                ClientScreenState.SENDING_FILES -> columnScope.apply {
+                ClientScreenState.SENDING_FILES ->  {
 //                    val progress = client!!.progress.collectAsState("")
 //                    Text("Sending files ${progress.value}")
                     Text("Sending files")
@@ -143,7 +144,7 @@ public fun ClientScreen(
                     CircularProgressIndicator()
                 }
 
-                ClientScreenState.DONE -> columnScope.apply {
+                ClientScreenState.DONE ->  {
                     Text("Files sending complete, yay !")
                 }
             }

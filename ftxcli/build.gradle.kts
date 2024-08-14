@@ -13,7 +13,12 @@ repositories {
 
 kotlin {
 
-    jvm(){
+    mingwX64()
+    linuxX64()
+    linuxArm64()
+    macosX64()
+    macosArm64()
+    jvm{
         compilations.all {
             kotlinOptions.jvmTarget = "11"
         }
@@ -32,6 +37,7 @@ kotlin {
 
                 //ftx core
                 implementation(project(":ftxcore"))
+
             }
         }
 

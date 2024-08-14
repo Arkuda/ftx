@@ -12,9 +12,9 @@ pluginManagement {
 
 rootProject.name = "ftx"
 
-include(":android")
+//include(":android")
 include(":desktop")
 include(":commonui")
 include(":ftxcore")
 //include(":ftxcore")
-include("ftxcli")
+include(":ftxcli")

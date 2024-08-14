@@ -1,7 +1,7 @@
 plugins {
     kotlin("multiplatform")
     id("org.jetbrains.compose")
-    id("com.android.library")
+//    id("com.android.library")
 }
 
 group = "com.kiryantsev"
@@ -9,16 +9,23 @@ version = "1.0-SNAPSHOT"
 
 @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
 kotlin {
-    androidTarget {
-        compilations.all {
-            kotlinOptions.jvmTarget = "11"
-        }
-    }
+//    androidTarget {
+//        compilations.all {
+//            kotlinOptions.jvmTarget = "11"
+//        }
+//    }
+    mingwX64()
+    linuxX64()
+//    linuxArm64()
+//    macosX64()
+//    macosArm64()
+
     jvm("desktop") {
         compilations.all {
             kotlinOptions.jvmTarget = "11"
         }
     }
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -29,6 +36,8 @@ kotlin {
                 api(compose.material3)
                 implementation("com.darkrockstudios:mpfilepicker:3.1.0")
                 implementation(project(":ftxcore"))
+
+//                api(compose.preview)
             }
         }
 
@@ -38,12 +47,12 @@ kotlin {
             }
         }
 
-        val androidMain by getting {
-            dependencies {
-                api(libs.androidx.appcompat)
-                api(libs.androidx.core)
-            }
-        }
+//        val androidMain by getting {
+//            dependencies {
+//                api(libs.androidx.appcompat)
+//                api(libs.androidx.core)
+//            }
+//        }
 
         val desktopMain by getting {
             dependencies {
@@ -60,18 +69,18 @@ kotlin {
     explicitApi()
 }
 
-android {
-    compileSdk = 34
-    sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
-    defaultConfig {
-        minSdk = 24
-            targetSdk = 34
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-}
+//android {
+//    compileSdk = 34
+//    sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
+//    defaultConfig {
+//        minSdk = 24
+//            targetSdk = 34
+//    }
+//    compileOptions {
+//        sourceCompatibility = JavaVersion.VERSION_11
+//        targetCompatibility = JavaVersion.VERSION_11
+//    }
+//}
 dependencies {
-    implementation(project(mapOf("path" to ":ftxcore")))
+//    implementation(project(mapOf("path" to "ftxcore")))
 }

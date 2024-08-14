@@ -23,27 +23,21 @@ algo:
 
 public class Server(private val basePath: String) {
 
-    public val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>()
-
     private val coreServer = BaseSocketServer(
         port = 8099,
         basePath = basePath,
         onCreateServersWithPorts = this::createAdditionalServers,
-        messagesFlow = messagesFlow,
     )
 
+    private val servers = mutableListOf(coreServer)
+
     public fun start() {
-        Thread {
-            coreServer.start()
-        }.start()
+        coreServer.start()
     }
 
 
     private fun createAdditionalServers(poolSize: Int): List<Int> {
-
         val chosenPorts = mutableListOf<Int>()
-        val threads = mutableListOf<Thread>()
-
         repeat(poolSize) {
             val subServ = BaseSocketServer(
                 port = 0,
@@ -51,19 +45,18 @@ public class Server(private val basePath: String) {
                 onCreateServersWithPorts = { _ -> listOf() }
             )
             chosenPorts.add(subServ.getResultPort())
+            servers.add(subServ)
+            subServ.start()
 
-            threads.add(Thread {
-                subServ.start()
-            })
         }
-        threads.forEach(Thread::run)
-
         return chosenPorts
     }
 
 
     public fun stopAll() {
-//        disposableJobs.forEach(Job::cancel)
+        servers.forEach {
+            it.dispose()
+        }
     }
 
 

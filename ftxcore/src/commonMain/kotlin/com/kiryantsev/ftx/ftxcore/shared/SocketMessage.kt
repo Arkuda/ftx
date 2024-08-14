@@ -9,8 +9,9 @@ import kotlinx.serialization.json.Json
 @Serializable
 public sealed class SocketMessage {
     public fun toJson() : String =Json.encodeToString(this)
-
 }
+
+
 
 @Serializable
 @SerialName("OkMessage")

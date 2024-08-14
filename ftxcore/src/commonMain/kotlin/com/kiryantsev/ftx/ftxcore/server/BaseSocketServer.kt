@@ -4,13 +4,16 @@ package com.kiryantsev.ftx.ftxcore.server
 
 import com.kiryantsev.ftx.ftxcore.Utils
 import com.kiryantsev.ftx.ftxcore.shared.*
+import com.kiryantsev.ftx.ftxcore.shared.logging.LogManager
+import com.kiryantsev.ftx.ftxcore.shared.logging.LogMessage
+import io.ktor.network.selector.*
+import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.serialization.json.Json
-import java.io.*
-import java.net.ServerSocket
-import java.net.Socket
-import java.util.*
+import okio.FileSystem
+import okio.Path.Companion.toPath
+import okio.buffer
+import okio.use
 
 
 //https://gist.github.com/Silverbaq/a14fe6b3ec57703e8cc1a63b59605876
@@ -20,37 +23,63 @@ internal class BaseSocketServer(
     private val port: Int,
     private val basePath: String,
     private val onCreateServersWithPorts: (Int) -> List<Int>,
-    private val messagesFlow: MutableSharedFlow<SocketMessage> = MutableSharedFlow<SocketMessage>(),
 ) {
 
-    @Volatile
     var state: ServerState = ServerState.WAIT_CONNECTION
-    private val socket = ServerSocket(port)
+    val selectorManager = SelectorManager(Dispatchers.IO)
+    private val socket = aSocket(selectorManager).tcp().bind(port = port)
     private lateinit var messageManager: SocketMessageManager
 
+    private val coroutineContext = Dispatchers.IO + SupervisorJob()
+    private val coroutineScope = CoroutineScope(coroutineContext)
+
     fun start() {
-        socket.accept()
-        val connection = socket.accept()
-        state = ServerState.CONNECTED
-        connection.keepAlive = true
-        messageManager = SocketMessageManager(socket = connection)
+        coroutineScope.launch {
+            while (true) {
+                val connection = socket.accept()
+                state = ServerState.CONNECTED
+                messageManager = SocketMessageManager(socket = connection)
+                LogManager.log(LogMessage.StringLogMessage("Server", "have connected client ${socket.localAddress}"))
 
-        while (connection.isConnected) {
-            if (ServerState.isNeedListeningMessage(state)) {
-                runBlocking {
-                    val message = messageManager.receiveMessage()
-                    if(message != null){
-                        onMessageReceived(message, connection, messageManager)
-                    }
+                while (state != ServerState.CLOSED) {
+                    tryReceiveMessage(connection)
                 }
-
             }
+        }
+
+    }
+
+    private suspend fun tryReceiveMessage(connection: Socket) {
+        try {
+            val message = messageManager.receiveMessage()
+            if (message != null) {
+                LogManager.log(
+                    LogMessage.StringLogMessage(
+                        "Server",
+                        "received message $message, connection.isClosed = ${connection.isClosed}"
+                    )
+                )
+                onMessageReceived(message, connection, messageManager)
+            }
+
+        } catch (e: Exception) {
+            LogManager.log(
+                LogMessage.ExceptionLogMessage(
+                    "Server",
+                    "error while parsing or receiving message $e",
+                    e
+                )
+            )
         }
     }
 
-    fun getResultPort(): Int = socket.localPort
+    fun getResultPort(): Int = (socket.localAddress as InetSocketAddress).port
 
-    private fun onMessageReceived(message: SocketMessage, connection: Socket, messageManager: SocketMessageManager) {
+    private suspend fun onMessageReceived(
+        message: SocketMessage,
+        connection: Socket,
+        messageManager: SocketMessageManager
+    ) {
         when (message) {
 
             is AvailablePoolSizeMessage -> {
@@ -74,17 +103,18 @@ internal class BaseSocketServer(
                     println("Socket message error: received StartFileSendingMessage when sate is $state")
                 }
 
-                receiveFile(connection, message, messageManager)
+                receiveFile(messageManager, message, messageManager)
             }
 
 
             is CheckFreeSpaceForTransferMessage -> {
-                val targetFolderFreeSpace = File(basePath).freeSpace
-                if (targetFolderFreeSpace > message.size) {
-                    messageManager.sendMessage(OkMessage)
-                } else {
-                    messageManager.sendMessage(ErrorMessage)
-                }
+                messageManager.sendMessage(OkMessage) //todo calc free space
+//                val targetFolderFreeSpace = File(basePath).freeSpace
+//                if (targetFolderFreeSpace > message.size) {
+//                    messageManager.sendMessage(OkMessage)
+//                } else {
+//                    messageManager.sendMessage(ErrorMessage)
+//                }
             }
 
             else -> {}
@@ -93,52 +123,84 @@ internal class BaseSocketServer(
         }
     }
 
-    private fun receiveFile(client: Socket, startFileSendingMessage: StartFileSendingMessage, messageManager: SocketMessageManager) {
-        try {
-            state = ServerState.AWAIT_FILE
-            val resPath = "$basePath/${startFileSendingMessage.relativePathWithName}"
-            Utils.createDirs(resPath)
-            val file = File(resPath)
-            file.createNewFile()
+    private fun receiveFile(
+        client: SocketMessageManager,
+        startFileSendingMessage: StartFileSendingMessage,
+        messageManager: SocketMessageManager
+    ) {
+        coroutineScope.launch {
+            try {
+                state = ServerState.AWAIT_FILE
+                val resPath = "$basePath/${startFileSendingMessage.relativePathWithName}"
+                Utils.createDirs(resPath)
+                LogManager.log(LogMessage.StringLogMessage("Server", "Start receiveing file $resPath"))
 
-            client.getInputStream().transferTo(file.outputStream(), startFileSendingMessage.sizeInBytes)
+                val buffSize = 4000000
+                val buff = ByteArray(buffSize)
+                var readedCount = 0
+
+                FileSystem.SYSTEM.sink(resPath.toPath(true)).buffer().use { sink ->
+                    while (true) {
+                        client.receiveChannel.readFully(
+                            buff,
+                            0,
+                            buffSize
+                        )
+                        readedCount += buff.size
+
+                        if (buff.isEmpty() && readedCount < startFileSendingMessage.sizeInBytes) {
+                            // not full transmission error
+                            GlobalScope.launch {
+                                LogManager.log(
+                                    LogMessage.StringLogMessage(
+                                        "Server",
+                                        "not full transmission error for file $resPath"
+                                    )
+                                )
+                            }
+                            client.sendMessage(RetryFileSend)
+                            state = ServerState.AWAIT_MESSAGE
+                            break
+                        }
+                        if (buff.isEmpty() && readedCount >= startFileSendingMessage.sizeInBytes) {
+                            // ok
+                            GlobalScope.launch {
+                                LogManager.log(
+                                    LogMessage.StringLogMessage(
+                                        "Server",
+                                        "File received done for file $resPath"
+                                    )
+                                )
+                            }
+                            client.sendMessage(FileReceivedMessage(startFileSendingMessage.relativePathWithName))
+                            state = ServerState.AWAIT_MESSAGE
+                            break
+                        }
+                    }
+                }
 
 
-            state = ServerState.AWAIT_MESSAGE
-
-            messageManager.sendMessage(FileReceivedMessage(startFileSendingMessage.relativePathWithName))
-
-
-        } catch (e: Exception) {
-            state = ServerState.AWAIT_MESSAGE
-            println("Error when receive file ${startFileSendingMessage.relativePathWithName} : $e")
-            messageManager.sendMessage(ErrorMessage)
+            } catch (e: Exception) {
+                state = ServerState.AWAIT_MESSAGE
+                GlobalScope.launch {
+                    LogManager.log(
+                        LogMessage.ExceptionLogMessage(
+                            "Server",
+                            "Error when receive file ${startFileSendingMessage.relativePathWithName} : $e",
+                            e
+                        )
+                    )
+                }
+                messageManager.sendMessage(ErrorMessage)
+            }
         }
     }
 
-
-}
-
-private fun PrintWriter.sendMessage(message: SocketMessage) {
-    println(message.toJson())
-    flush()
-}
-
-private fun InputStream.transferTo(outputStream: FileOutputStream, sizeInBytes: Long, bufferSize: Int = 8192) {
-    var transferred: Long = 0
-    val buffer = ByteArray(bufferSize)
-    var countOfLoadedBytesInThisCycleBytes = 1
-
-    countOfLoadedBytesInThisCycleBytes = this.read(buffer)
-
-    while ((countOfLoadedBytesInThisCycleBytes > 0) && transferred < sizeInBytes) {
-        transferred += countOfLoadedBytesInThisCycleBytes
-        outputStream.write(buffer, 0, countOfLoadedBytesInThisCycleBytes)
-        countOfLoadedBytesInThisCycleBytes = this.read(buffer)
+    fun dispose() {
+//        coroutineContext.close()
     }
-    outputStream.write(buffer, 0, countOfLoadedBytesInThisCycleBytes)
-    outputStream.flush()
-    outputStream.close()
+
+
 }
 
 

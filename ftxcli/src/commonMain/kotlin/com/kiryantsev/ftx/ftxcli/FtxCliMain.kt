@@ -5,12 +5,8 @@ package com.kiryantsev.ftx.ftxcli
 import com.kiryantsev.ftx.ftxcore.client.Client
 import com.kiryantsev.ftx.ftxcore.server.Server
 import kotlinx.cli.*
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
-import java.util.*
-import javax.swing.JFrame
+import kotlinx.coroutines.*
+import kotlin.coroutines.resume
 
 
 public fun main(args: Array<String>) {
@@ -32,16 +28,21 @@ public fun main(args: Array<String>) {
         override fun execute() {
             if (serverAddr == null) {
                 println("Server addr is required for client")
-                kotlin.system.exitProcess(1)
+                throw Exception("Server addr is required for client")
+
             }
             if (sourceDirectory == null) {
                 println("source Directory is required for client")
-                kotlin.system.exitProcess(1)
+                throw Exception("source Directory is required for client")
             }
             println(">> Client started")
 
             val job = GlobalScope.async {
-               return@async Client(serverAddr!!).sendFolder(sourceDirectory!!)
+               return@async suspendCancellableCoroutine<Exception?> { cont ->
+                   Client(serverAddr!!).sendFolder(sourceDirectory!!){
+                       cont.resume(it)
+                   }
+               }
             }
             while (job.isActive) {
 
@@ -60,7 +61,7 @@ public fun main(args: Array<String>) {
         override fun execute() {
             if (directoryToSave == null) {
                 println("directory to save is required for client")
-                kotlin.system.exitProcess(1)
+                throw Exception("directory to save is required for client")
             }
             println(">> Server started")
             GlobalScope.launch {

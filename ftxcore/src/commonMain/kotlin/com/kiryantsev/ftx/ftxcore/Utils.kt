@@ -1,16 +1,10 @@
 package com.kiryantsev.ftx.ftxcore
 
-import java.io.File
+import okio.FileSystem
+import okio.Path.Companion.toPath
 
 public class Utils {
    public companion object {
-        public fun createDirs(path: String){
-            File(path).apply {
-                val parentDir = parentFile
-                if (!parentDir.exists()){
-                    parentDir.mkdirs()
-                }
-            }
-        }
+        public fun createDirs(path: String): Unit = FileSystem.SYSTEM.createDirectories(path.toPath(normalize = true))
     }
 }

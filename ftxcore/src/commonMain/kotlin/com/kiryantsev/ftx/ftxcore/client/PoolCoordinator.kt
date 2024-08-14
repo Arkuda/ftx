@@ -1,60 +1,74 @@
 package com.kiryantsev.ftx.ftxcore.client
 
-import kotlinx.coroutines.flow.asFlow
-import java.io.File
+import com.kiryantsev.ftx.ftxcore.shared.logging.LogManager
+import com.kiryantsev.ftx.ftxcore.shared.logging.LogMessage
+import kotlinx.coroutines.*
+import okio.Path
 
 internal class PoolCoordinator(
     val pool: List<BaseSocketClient>,
-    val files: List<File>,
+    val filesPaths: List<Path>,
     val basePath: String,
     val onSendComplete: () -> Unit,
 ) {
 
+    private val coroutineContext = Dispatchers.IO + SupervisorJob()
+//    private val coroutineContext = newSingleThreadContext("PoolCoordinator${this.hashCode()}")
+    private val coroutineScope = CoroutineScope(coroutineContext)
 
-    private var coordinatorThread: Thread? = null
-    private val filesToSend = files.toMutableList()
+    private val filesToSend = filesPaths.toMutableList()
     private var filesComplete = 0
 
     @Suppress("DEPRECATION")
     fun coordinate() {
-        coordinatorThread = Thread {
+        coroutineScope.launch {
             while (filesToSend.isNotEmpty()) {
                 val idleClient = firstIdleSender()
                 if (idleClient != null) {
                     filesToSend.firstOrNull()?.let { file ->
 
-                        var sendThread: Thread? = null
-                        sendThread = Thread {
                             filesToSend.remove(file)
-                            idleClient.sendFile(
-                                file = file,
-                                basePath = basePath,
-                                onFileSendComplete = { exception ->
-                                    println("[coordinator] file sended $exception ${file.path}")
-                                    println("filesComplete=$filesComplete files.size=${files.size}")
-                                    if (exception == null) {
-                                        if(++filesComplete == files.size){
-                                            onSendComplete()
-                                        }
-                                    } else {
-                                        filesToSend.add(file)
-                                    }
-                                    sendThread?.stop()
-                                }
-                            )
-                        }.apply { start() }
+                            try {
+                                idleClient.sendFile(
+                                    filePath = file,
+                                    basePath = basePath,
+                                )
+                                LogManager.log(LogMessage.StringLogMessage("Client","Progress $filesComplete/${filesPaths.size}"))
+                                if(++filesComplete == filesPaths.size){
+                                    onSendComplete()
+                                } else { }
+                            }catch (e: ClientException){
+                                LogManager.log(
+                                    LogMessage.ExceptionLogMessage(
+                                        "Client",
+                                        "Send file $file error, client exception $e",
+                                        e
+                                    )
+                                )
+                                filesToSend.add(file)
+                            }catch (e: Exception){
+                                LogManager.log(
+                                    LogMessage.ExceptionLogMessage(
+                                        "Client",
+                                        "Send file $file error, exception $e",
+                                        e
+                                    )
+                                )
+
+                                filesToSend.add(file)
+                            }
                     }
                 } else {
-                    Thread.sleep(1000)
+                    delay(1000)
                 }
             }
-        }.apply { start() }
+        }
     }
 
 
     @Suppress("DEPRECATION")
     fun dispose() {
-        coordinatorThread?.stop()
+//        coroutineContext.close()
     }
 
     private fun firstIdleSender(): BaseSocketClient? =

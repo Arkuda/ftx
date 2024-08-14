@@ -1,23 +1,30 @@
 package com.kiryantsev.ftx.ftxcore.client
 
-import java.io.File
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toPath
 
 internal class FileTreeUtils {
     companion object {
-        fun getFilesForDirectory(path: String) : List<File>{
-            val fileList = mutableListOf<File>()
+        fun getFilesForDirectory(path: String): List<Path> {
+            val fileList = mutableListOf<Path>()
+            val foldersToScan = mutableListOf<Path>(path.toPath(true))
+            val rootMetadata = FileSystem.SYSTEM.metadata(path.toPath(true))
 
-            val foldersToScan = mutableListOf<File>(File(path))
+            if(rootMetadata.isRegularFile){
+                return foldersToScan
+            }
 
-            while(foldersToScan.isNotEmpty()){
-                val newFoldersToScan =  mutableListOf<File>()
-                foldersToScan.forEach { folder ->
-                    folder.listFiles()?.forEach { item ->
-                        if(item.isDirectory){
-                           newFoldersToScan.add(item)
+            while (foldersToScan.isNotEmpty()) {
+                val newFoldersToScan = mutableListOf<Path>()
+                foldersToScan.forEach {
+                    FileSystem.SYSTEM.listOrNull(it)?.forEach { item ->
+                        val itemMetadata = FileSystem.SYSTEM.metadata(item)
+                        if(itemMetadata.isRegularFile){
+                            newFoldersToScan.add(item)
                         }
-                        if(item.isFile && item.length() > 0){
-                            fileList.add(item)
+                        if(itemMetadata.isDirectory){
+                            newFoldersToScan.add(item)
                         }
                     }
                 }

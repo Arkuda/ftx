@@ -1,7 +1,7 @@
 [versions]
 kotlin-version = "1.9.10"
 agp-version = "7.3.0"
-compose-version = "1.5.10"
+compose-version = "1.6.11"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp.version" }
