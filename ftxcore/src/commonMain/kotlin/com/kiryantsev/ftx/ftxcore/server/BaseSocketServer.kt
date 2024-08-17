@@ -10,6 +10,7 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import okio.SYSTEM
@@ -26,7 +27,7 @@ internal class BaseSocketServer(
     private val onCreateServersWithPorts: (Int) -> List<Int>,
 ) {
 
-    var state: ServerState = ServerState.WAIT_CONNECTION
+    var state = MutableStateFlow(ServerState.WAIT_CONNECTION)
     val selectorManager = SelectorManager(Dispatchers.IO)
     private val socket = aSocket(selectorManager).tcp().bind(port = port)
     private lateinit var messageManager: SocketMessageManager
@@ -38,11 +39,11 @@ internal class BaseSocketServer(
         coroutineScope.launch {
             while (true) {
                 val connection = socket.accept()
-                state = ServerState.CONNECTED
+                state.emit(ServerState.CONNECTED)
                 messageManager = SocketMessageManager(socket = connection, SocketMessageManager.SenderType.SERVER)
                 LogManager.log(LogMessage.StringLogMessage("Server", "have connected client ${socket.localAddress}"))
 
-                while (state != ServerState.CLOSED) {
+                while (state.value != ServerState.CLOSED) {
                     tryReceiveMessage(connection)
                     delay(10)
                 }
@@ -96,12 +97,12 @@ internal class BaseSocketServer(
                         ports = chosenPorts
                     )
                 )
-                state = ServerState.AWAIT_MESSAGE
+                state.emit(ServerState.AWAIT_MESSAGE)
             }
 
 
             is StartFileSendingMessage -> {
-                if (state != ServerState.AWAIT_MESSAGE) {
+                if (state.value != ServerState.AWAIT_MESSAGE) {
                     println("Socket message error: received StartFileSendingMessage when sate is $state")
                 }
 
@@ -132,7 +133,7 @@ internal class BaseSocketServer(
     ) {
         coroutineScope.launch {
             try {
-                state = ServerState.AWAIT_FILE
+                state.emit(ServerState.AWAIT_FILE)
                 val resPath = "$basePath/${startFileSendingMessage.relativePathWithName}"
                 Utils.createDirs(resPath)
                 LogManager.log(LogMessage.StringLogMessage("Server", "Start receiveing file $resPath"))
@@ -161,7 +162,7 @@ internal class BaseSocketServer(
                                 )
                             }
                             client.sendMessage(RetryFileSend)
-                            state = ServerState.AWAIT_MESSAGE
+                            state.emit(ServerState.AWAIT_MESSAGE)
                             break
                         }
                         if (buff.isEmpty() && readedCount >= startFileSendingMessage.sizeInBytes) {
@@ -175,7 +176,7 @@ internal class BaseSocketServer(
                                 )
                             }
                             client.sendMessage(FileReceivedMessage(startFileSendingMessage.relativePathWithName))
-                            state = ServerState.AWAIT_MESSAGE
+                            state.emit(ServerState.AWAIT_MESSAGE)
                             break
                         }
                     }
@@ -183,7 +184,7 @@ internal class BaseSocketServer(
 
 
             } catch (e: Exception) {
-                state = ServerState.AWAIT_MESSAGE
+                state.emit(ServerState.AWAIT_MESSAGE)
                 GlobalScope.launch {
                     LogManager.log(
                         LogMessage.ExceptionLogMessage(

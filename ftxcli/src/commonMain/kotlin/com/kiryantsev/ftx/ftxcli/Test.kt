@@ -15,7 +15,7 @@ public fun main(args: Array<String>) {
     val targetPath = "U:\\test_res"
 
     val client = Client("127.0.0.1")
-    val server = Server(sorucePath)
+    val server = Server(targetPath)
 
     var isFinished = false
     LogManager.loggingEnabled = true
@@ -32,6 +32,18 @@ public fun main(args: Array<String>) {
         }.collect()
     }
 
+    GlobalScope.launch {
+        client.state.onEach {
+            LogManager.log(LogMessage.StringLogMessage("CLIENT STATE CHANGE", it.name))
+        }.collect()
+    }
+
+    GlobalScope.launch {
+        server.state.onEach {
+            LogManager.log(LogMessage.StringLogMessage("SERVER STATE CHANGE", it.name))
+        }.collect()
+    }
+
 
     (CoroutineScope(newFixedThreadPoolContext(5,"server"))).launch {
         server.start()
@@ -39,7 +51,7 @@ public fun main(args: Array<String>) {
     (CoroutineScope(newFixedThreadPoolContext(5,"client"))).launch {
         delay(5000)
         client.init()
-        client.sendFolder(targetPath){
+        client.sendFolder(sorucePath){
             isFinished = true
             println("Finished sending, exception: $it")
         }

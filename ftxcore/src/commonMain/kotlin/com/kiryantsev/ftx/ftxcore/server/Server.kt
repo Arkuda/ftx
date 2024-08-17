@@ -4,6 +4,7 @@ package com.kiryantsev.ftx.ftxcore.server
 
 import com.kiryantsev.ftx.ftxcore.shared.SocketMessage
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 
@@ -28,6 +29,9 @@ public class Server(private val basePath: String) {
         basePath = basePath,
         onCreateServersWithPorts = this::createAdditionalServers,
     )
+
+    public val state: Flow<ServerState>
+        get() = coreServer.state
 
     private val servers = mutableListOf(coreServer)
 

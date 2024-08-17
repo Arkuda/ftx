@@ -24,7 +24,7 @@ internal class SocketMessageManager(private val socket: Socket, private val send
 
     suspend fun receiveMessage(): SocketMessage? {
         try {
-            LogManager.log(LogMessage.StringLogMessage("MESSANGER ${senderType.name} ${socket.localAddress} ${socket.hashCode()}", "try receive, availableForRead=${receiveChannel.availableForRead}"))
+//            LogManager.log(LogMessage.StringLogMessage("MESSANGER ${senderType.name} ${socket.localAddress} ${socket.hashCode()}", "try receive, availableForRead=${receiveChannel.availableForRead}"))
 
             if(receiveChannel.availableForRead == 0) return null
             val rawMessage = receiveChannel.readUTF8Line() ?: return null

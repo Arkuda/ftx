@@ -22,10 +22,12 @@ internal class PoolCoordinator(
     @Suppress("DEPRECATION")
     fun coordinate() {
         coroutineScope.launch {
+            LogManager.log(LogMessage.StringLogMessage("CLIENT POOL COORDINATOR", "Start sendign ${filesToSend.size} files"))
             while (filesToSend.isNotEmpty()) {
                 val idleClient = firstIdleSender()
                 if (idleClient != null) {
                     filesToSend.firstOrNull()?.let { file ->
+                        LogManager.log(LogMessage.StringLogMessage("CLIENT POOL COORDINATOR", "Files to send ${filesToSend.size}, choosed ${file.name}, sending"))
 
                             filesToSend.remove(file)
                             try {

@@ -34,6 +34,9 @@ public class Client(
 
     ) {
 
+    public val state : Flow<ClientState>
+        get() = clientCoordinator.state
+
     private val clientCoordinator = BaseSocketClient(
         onCreateClients = this::createClients
     )
@@ -91,7 +94,7 @@ public class Client(
 
 
     private suspend fun createClients(ports: List<Int>) {
-        ports.forEach {
+       return ports.map {
             coroutineScope.launch {
                 LogManager.log(LogMessage.StringLogMessage("Client", "Creating BaseSocketClient with port ${it}"))
                 val subClient = BaseSocketClient(onCreateClients = {})
@@ -100,7 +103,7 @@ public class Client(
                 clientsPool.add(subClient)
                 LogManager.log(LogMessage.StringLogMessage("Client", "Creating BaseSocketClient with port ${it} done"))
             }
-        }
+        }.joinAll()
     }
 }
 

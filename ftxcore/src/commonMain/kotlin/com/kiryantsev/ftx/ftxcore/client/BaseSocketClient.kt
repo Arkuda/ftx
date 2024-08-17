@@ -60,6 +60,7 @@ internal class BaseSocketClient(
                     )
                 )
                 onCreateClients(choosedMessage.ports)
+                _state.update { ClientState.READY }
                 cont.resume(Unit)
             }
         }
@@ -116,7 +117,7 @@ internal class BaseSocketClient(
 
 }
 
-internal enum class ClientState {
+public enum class ClientState {
     NOT_CONNECTED,
     CONNECTING,
     POOL_COORDINATION,
@@ -124,7 +125,7 @@ internal enum class ClientState {
     DO_WORK,
     CLOSED;
 
-    companion object {
-        fun needWaitMessagesFromServer(state: ClientState) = state != NOT_CONNECTED && state != CLOSED
+    public companion object {
+        public fun needWaitMessagesFromServer(state: ClientState): Boolean = state != NOT_CONNECTED && state != CLOSED
     }
 }

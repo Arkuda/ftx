@@ -3,6 +3,7 @@ package com.kiryantsev.ftx.ftxcore.client
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
+import okio.SYSTEM
 
 internal class FileTreeUtils {
     companion object {
@@ -24,7 +25,7 @@ internal class FileTreeUtils {
                             newFoldersToScan.add(item)
                         }
                         if(itemMetadata.isDirectory){
-                            newFoldersToScan.add(item)
+                            fileList.add(item)
                         }
                     }
                 }
