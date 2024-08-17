@@ -32,7 +32,7 @@ internal class BaseSocketClient(
         try {
             _state.update { ClientState.CONNECTING }
             socket = aSocket(selectorManager).tcp().connect(ip, port)
-            socketMessageManager = SocketMessageManager(socket!!)
+            socketMessageManager = SocketMessageManager(socket!!, SocketMessageManager.SenderType.CLIENT)
             _state.update { ClientState.READY }
         } catch (e: Exception) {
             _state.update { ClientState.NOT_CONNECTED }

@@ -14,7 +14,7 @@ public fun main(args: Array<String>) {
     val sorucePath = "E:\\books"
     val targetPath = "U:\\test_res"
 
-    val client = Client("192.168.1.76")
+    val client = Client("127.0.0.1")
     val server = Server(sorucePath)
 
     var isFinished = false

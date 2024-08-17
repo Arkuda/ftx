@@ -12,6 +12,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import okio.FileSystem
 import okio.Path.Companion.toPath
+import okio.SYSTEM
 import okio.buffer
 import okio.use
 
@@ -38,11 +39,12 @@ internal class BaseSocketServer(
             while (true) {
                 val connection = socket.accept()
                 state = ServerState.CONNECTED
-                messageManager = SocketMessageManager(socket = connection)
+                messageManager = SocketMessageManager(socket = connection, SocketMessageManager.SenderType.SERVER)
                 LogManager.log(LogMessage.StringLogMessage("Server", "have connected client ${socket.localAddress}"))
 
                 while (state != ServerState.CLOSED) {
                     tryReceiveMessage(connection)
+                    delay(10)
                 }
             }
         }
