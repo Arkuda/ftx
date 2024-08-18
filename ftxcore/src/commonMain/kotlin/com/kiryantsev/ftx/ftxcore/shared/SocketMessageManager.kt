@@ -19,6 +19,10 @@ internal class SocketMessageManager(private val socket: Socket, private val send
     suspend fun sendMessage(msg: SocketMessage) {
         val jsonMsg = Json.encodeToString(msg)
         LogManager.log(LogMessage.StringLogMessage("MSG_MNGR ${senderType.name}", "Sending message: $jsonMsg"))
+        sendChannel.awaitFreeSpace()
+        while (sendChannel.isClosedForWrite){
+            //wait of sending prev bytes
+        }
         sendChannel.writeStringUtf8("$jsonMsg\r\n")
     }
 

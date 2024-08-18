@@ -44,7 +44,9 @@ internal class BaseSocketServer(
                 LogManager.log(LogMessage.StringLogMessage("Server", "have connected client ${socket.localAddress}"))
 
                 while (state.value != ServerState.CLOSED) {
-                    tryReceiveMessage(connection)
+                    if(state.value != ServerState.AWAIT_FILE){
+                        tryReceiveMessage(connection)
+                    }
                     delay(10)
                 }
             }
@@ -102,10 +104,6 @@ internal class BaseSocketServer(
 
 
             is StartFileSendingMessage -> {
-                if (state.value != ServerState.AWAIT_MESSAGE) {
-                    println("Socket message error: received StartFileSendingMessage when sate is $state")
-                }
-
                 receiveFile(messageManager, message, messageManager)
             }
 
@@ -142,14 +140,16 @@ internal class BaseSocketServer(
                 val buff = ByteArray(buffSize)
                 var readedCount = 0
 
-                FileSystem.SYSTEM.sink(resPath.toPath(true)).buffer().use { sink ->
+                FileSystem.SYSTEM.appendingSink(resPath.toPath(true)).buffer().use { sink ->
                     while (true) {
+                        var offset = 0
                         client.receiveChannel.readFully(
                             buff,
-                            0,
+                            offset,
                             buffSize
                         )
                         readedCount += buff.size
+                        offset+= buff.size
 
                         if (buff.isEmpty() && readedCount < startFileSendingMessage.sizeInBytes) {
                             // not full transmission error

@@ -31,6 +31,7 @@ internal class PoolCoordinator(
 
                             filesToSend.remove(file)
                             try {
+                                idleClient.blockingSetIsDoingWork()
                                 idleClient.sendFile(
                                     filePath = file,
                                     basePath = basePath,

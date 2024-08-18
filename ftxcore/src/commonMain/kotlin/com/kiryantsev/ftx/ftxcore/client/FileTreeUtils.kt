@@ -22,10 +22,10 @@ internal class FileTreeUtils {
                     FileSystem.SYSTEM.listOrNull(it)?.forEach { item ->
                         val itemMetadata = FileSystem.SYSTEM.metadata(item)
                         if(itemMetadata.isRegularFile){
-                            newFoldersToScan.add(item)
+                            fileList.add(item)
                         }
                         if(itemMetadata.isDirectory){
-                            fileList.add(item)
+                            newFoldersToScan.add(item)
                         }
                     }
                 }

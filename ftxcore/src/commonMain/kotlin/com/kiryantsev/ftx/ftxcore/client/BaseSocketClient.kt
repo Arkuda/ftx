@@ -89,18 +89,28 @@ internal class BaseSocketClient(
                 FileSystem.SYSTEM.metadata(filePath).size
                     ?: throw ErrorWithSendingFileException("Cant calculate file size")
 
-            socketMessageManager.sendMessage(StartFileSendingMessage(size, basePath))
+            val resPath = filePath.toString().replace(basePath,"")
+
+            socketMessageManager.sendMessage(StartFileSendingMessage(size, resPath))
             FileSystem.SYSTEM.read(filePath) {
+                var offset = 0
                 while (true) {
-                    val bytes = readByteArray(4000000)
+                    val bytes = readByteArray()
                     socketMessageManager.sendChannel.writeFully(
                         bytes,
-                        0,
+                        offset,
                         bytes.size
                     )
                     if (bytes.isEmpty()) {
                         break
+                    }else {
+                        delay(1000)
                     }
+                    while (socketMessageManager.sendChannel.isClosedForWrite){
+                        //wait for sending all prev bytes
+                    }
+                    offset += bytes.size
+                    socketMessageManager.sendChannel.awaitFreeSpace()
                 }
             }
             val receivedMessage = socketMessageManager.waitMessage(
@@ -113,6 +123,10 @@ internal class BaseSocketClient(
             _state.update { ClientState.READY }
         }
 
+    }
+
+    suspend fun blockingSetIsDoingWork() {
+        _state.emit(ClientState.DO_WORK)
     }
 
 }
