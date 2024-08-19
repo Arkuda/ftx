@@ -57,9 +57,8 @@ public class Client(
             GlobalScope.launch {
                 try {
                     withTimeout(timeout = 60.toDuration(DurationUnit.SECONDS)) {
-                        clientCoordinator.state.filter { it == ClientState.READY }.collect {
-                            continuation.resume(true)
-                        }
+                        clientCoordinator.state.first { it == ClientState.READY }
+                        continuation.resume(true)
                     }
                 } catch (e: Exception) {
                     LogManager.log(LogMessage.ExceptionLogMessage("Client", "Exception while try init client", e))
